@@ -33,7 +33,9 @@ else
     missing=()
     command -v git      >/dev/null || missing+=(git)
     command -v python3  >/dev/null || missing+=(python3)
-    python3 -c "import venv" 2>/dev/null || missing+=(python3-venv)
+    # `import venv` succeeds from the stdlib even when the python3-venv
+    # package is absent. ensurepip is what actually gates `python3 -m venv`.
+    python3 -c "import ensurepip" 2>/dev/null || missing+=(python3-venv)
     python3 -c "import yaml" 2>/dev/null || missing+=(python3-yaml)
     if [[ ${#missing[@]} -eq 0 ]]; then
         ok "git, python3, venv, yaml present"
@@ -57,6 +59,11 @@ echo "==> Python environment"
 if [[ -x "$VENV/bin/sigma" ]]; then
     ok "venv exists: $($VENV/bin/sigma version 2>/dev/null | head -1)"
 else
+    # A failed `python3 -m venv` leaves a half-built directory behind that
+    # breaks the retry. Clear it.
+    [[ -d "$VENV" ]] && { info "removing incomplete venv"; rm -rf "$VENV"; }
+    python3 -c "import ensurepip" 2>/dev/null || die \
+        "python3-venv is not installed. Run: sudo apt-get install -y python3-venv"
     info "creating venv"
     python3 -m venv "$VENV"
     "$VENV/bin/pip" install --quiet --upgrade pip
