@@ -1,0 +1,20 @@
+name: Secureon - Linux builtin (syslog)
+priority: 30
+
+# Scope: rules/linux/builtin only - the ~22 rules that work on plain
+# /var/log/auth.log and /var/log/secure without auditd or Sysmon-for-Linux.
+#
+# These rules are almost entirely unbound keyword matches against the raw
+# event (no field names), so there is nothing to map. This file only pins
+# the index.
+#
+# Excluded from this run: linux/process_creation (122 rules),
+# linux/auditd (53), linux/file_event (8), linux/network_connection (5).
+# All of those need telemetry that is not currently collected.
+
+transformations:
+
+  - id: index_condition
+    type: add_condition
+    conditions:
+      index: linux

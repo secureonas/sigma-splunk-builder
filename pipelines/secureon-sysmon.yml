@@ -1,0 +1,24 @@
+name: Secureon - Sysmon
+priority: 30
+
+# TA-microsoft-sysmon 10.6.2 preserves the native Sysmon field names
+# (Image, CommandLine, ParentImage, ParentCommandLine, OriginalFileName,
+#  TargetObject, TargetFilename, ImageLoaded, CallTrace, GrantedAccess,
+#  SourceImage, TargetImage, PipeName, QueryName, Details, IntegrityLevel,
+#  User, ParentUser, LogonId, CurrentDirectory, RuleName).
+# Verified against an EventCode=1 sample, 2026-09-18.
+#
+# So NO field_name_mapping is required here. Sigma's names pass straight
+# through. The stock `sysmon` pipeline handles category -> EventID, and
+# `splunk_windows` sets the source. This file only pins the index.
+#
+# Do not add the windows-builtin mapping to this run: it would rewrite
+# ProcessName/ObjectName/AccessMask into Security-channel names that do
+# not exist in Sysmon events.
+
+transformations:
+
+  - id: index_condition
+    type: add_condition
+    conditions:
+      index: windows

@@ -1,0 +1,11 @@
+postprocessing:
+- type: template
+  template: |+
+    [{{ rule.id }}]
+    definition = *
+    iseval = 0
+
+finalizers:
+- type: template
+  template: |
+    {{ queries | join('\n') }}

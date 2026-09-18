@@ -1,0 +1,23 @@
+#
+# Replace with the metadata/default.meta from your currently deployed app.
+#
+# Macros are deliberately NOT exported to system scope. Client exception
+# macros live in local/macros.conf of this same app and resolve in app
+# context. Exporting them, or splitting the searches into a second app,
+# breaks that.
+#
+[]
+access = read : [ * ], write : [ admin, power ]
+export = none
+
+[eventtypes]
+export = system
+
+[props]
+export = system
+
+[transforms]
+export = system
+
+[lookups]
+export = system

@@ -1,0 +1,217 @@
+name: Secureon - Microsoft cloud (Entra sign-in / audit, M365 unified audit log)
+priority: 30
+
+# All three schemas verified against real events from index=o365, 2026-09-18.
+#
+#   azure/signin_logs -> azure:aad:signin          Graph signIns, camelCase
+#   azure/audit_logs  -> azure:aad:audit           Graph directoryAudits, camelCase
+#   m365/*            -> o365:management:activity  unified audit log, PascalCase
+#
+# Sigma's azure rules are inconsistent about case (Category/category,
+# OperationName/operationName, ActivityType/activityType) and contain typos
+# (Initiatedby, Resultdescription). pySigma field mapping is case-sensitive,
+# so every observed spelling is listed explicitly.
+#
+# Fields containing {} keep their real names. The build script rewrites the
+# backend's double quotes to single quotes afterwards: "a{}.b"="x" is a
+# string comparison in SPL, 'a{}.b'="x" is a field match.
+
+transformations:
+
+  # ------------------------------------------------- per-rule schema fixes
+  # Sigma inherits Sentinel's `Status`, a blob holding result, resultReason
+  # and additionalDetails together. Graph splits those into separate fields,
+  # so the right target depends on the VALUE, which a field mapping cannot
+  # branch on. Four audit rules use Status: Success/failure -> result, which
+  # the general mapping below handles. These use it for the reason text.
+  #
+  # Listed first so they win: later transformations no longer see `Status`.
+  # If this section grows past a handful, move it to its own pipeline file.
+  - id: audit_status_is_reason
+    type: field_name_mapping
+    mapping:
+      Status: resultReason
+    rule_conditions:
+      - type: rule_attribute
+        attribute: id
+        value: fa84aaf5-8142-43cd-9ec2-78cfebf878ce
+
+  # ---------------------------------------------------------------- sign-in
+  - id: signin_field_mapping
+    type: field_name_mapping
+    mapping:
+      Username: userPrincipalName
+      UserPrincipalName: userPrincipalName
+      UserId: userId
+      UserType: userType
+      UserDisplayName: userDisplayName
+      ClientApp: clientAppUsed
+      AppDisplayName: appDisplayName
+      AppId: appId
+      ResourceDisplayName: resourceDisplayName
+      ResourceId: resourceId
+      IPAddress: ipAddress
+      IpAddress: ipAddress
+      UserAgent: userAgent
+      ConditionalAccessStatus: conditionalAccessStatus
+      AuthenticationRequirement: authenticationRequirement
+      AuthenticationProtocol: authenticationProtocol
+      IsInteractive: isInteractive
+      TokenIssuerType: tokenIssuerType
+      CrossTenantAccessType: crossTenantAccessType
+      HomeTenantId: homeTenantId
+      ResourceTenantId: resourceTenantId
+      IncomingTokenType: incomingTokenType
+      ServicePrincipalName: servicePrincipalName
+      ServicePrincipalId: servicePrincipalId
+      CorrelationId: correlationId
+      RiskState: riskState
+      RiskDetail: riskDetail
+      RiskLevelDuringSignIn: riskLevelDuringSignIn
+      RiskLevelAggregated: riskLevelAggregated
+      # Confirmed from a raw signin event: the array is riskEventTypes_v2,
+      # not riskEventTypes. Empty arrays mean the field is absent on most
+      # events, so it only appears on risky sign-ins.
+      RiskEventTypes: "riskEventTypes_v2{}"
+      riskEventType: "riskEventTypes_v2{}"
+      RiskEventTypes_V2: "riskEventTypes_v2{}"
+      ResultType: status.errorCode
+      ResultDescription: status.failureReason
+      Resultdescription: status.failureReason
+      Status: status.errorCode
+      DeviceDetail.isCompliant: deviceDetail.isCompliant
+      DeviceDetail.iscompliant: deviceDetail.isCompliant
+      DeviceDetail.isManaged: deviceDetail.isManaged
+      DeviceDetail.ismanaged: deviceDetail.isManaged
+      DeviceDetail.trustType: deviceDetail.trustType
+      DeviceDetail.trusttype: deviceDetail.trustType
+      DeviceDetail.deviceId: deviceDetail.deviceId
+      DeviceDetail.deviceid: deviceDetail.deviceId
+      DeviceDetail.displayName: deviceDetail.displayName
+      DeviceDetail.operatingSystem: deviceDetail.operatingSystem
+      DeviceDetail.browser: deviceDetail.browser
+      Location: location.countryOrRegion
+      LocationDetails.countryOrRegion: location.countryOrRegion
+      LocationDetails.city: location.city
+    rule_conditions:
+      - type: logsource
+        product: azure
+        service: signinlogs
+
+  # Sigma's signin rules write Status: 'Success', but status.errorCode is
+  # numeric (0 = success; 50053, 53003, 399218 ... are failures). Confirmed
+  # against real data. ResultType is already numeric in the rules and needs
+  # no fixing.
+  - id: signin_status_success
+    type: replace_string
+    regex: '^Success$'
+    replacement: '0'
+    field_name_conditions:
+      - type: include_fields
+        fields:
+          - status.errorCode
+
+  - id: sourcetype_signin
+    type: add_condition
+    conditions:
+      sourcetype: "azure:aad:signin"
+    rule_conditions:
+      - type: logsource
+        product: azure
+        service: signinlogs
+
+  # ------------------------------------------------------------------ audit
+  - id: audit_field_mapping
+    type: field_name_mapping
+    mapping:
+      OperationName: activityDisplayName
+      operationName: activityDisplayName
+      ActivityDisplayName: activityDisplayName
+      # Sentinel AzureActivity column names that leaked into the azure rules.
+      # Their values are activityDisplayName values, e.g. "Add conditional
+      # access policy", "Request Approved/Denied".
+      properties.message: activityDisplayName
+      properties.result: result
+      properties.targetResources: "targetResources{}.displayName"
+      ActivityType: activityDisplayName
+      activityType: activityDisplayName
+      OperationType: operationType
+      Category: category
+      LoggedByService: loggedByService
+      CorrelationId: correlationId
+      ActivityDateTime: activityDateTime
+      Status: result
+      Result: result
+      ResultDescription: resultReason
+      Resultdescription: resultReason
+      ResultReason: resultReason
+      failure_status_reason: resultReason
+      InitiatedBy: initiatedBy.user.userPrincipalName
+      Initiatedby: initiatedBy.user.userPrincipalName
+      InitiatedBy.user.userPrincipalName: initiatedBy.user.userPrincipalName
+      InitiatedBy.user.id: initiatedBy.user.id
+      InitiatedBy.user.ipAddress: initiatedBy.user.ipAddress
+      InitiatedBy.user.displayName: initiatedBy.user.displayName
+      InitiatedBy.app.displayName: initiatedBy.app.displayName
+      InitiatedBy.app.appId: initiatedBy.app.appId
+      InitiatedBy.app.servicePrincipalName: initiatedBy.app.servicePrincipalName
+      Target: "targetResources{}.displayName"
+      TargetResources: "targetResources{}.displayName"
+      TargetResources.type: "targetResources{}.type"
+      targetResources.type: "targetResources{}.type"
+      TargetResources.displayName: "targetResources{}.displayName"
+      TargetResources.id: "targetResources{}.id"
+      TargetResources.userPrincipalName: "targetResources{}.userPrincipalName"
+      TargetResources.groupType: "targetResources{}.groupType"
+      TargetResources.ModifiedProperties: "targetResources{}.modifiedProperties{}.displayName"
+      TargetResources.modifiedProperties: "targetResources{}.modifiedProperties{}.displayName"
+      TargetResources.ModifiedProperties.DisplayName: "targetResources{}.modifiedProperties{}.displayName"
+      TargetResources.modifiedProperties.displayName: "targetResources{}.modifiedProperties{}.displayName"
+      TargetResources.ModifiedProperties.NewValue: "targetResources{}.modifiedProperties{}.newValue"
+      TargetResources.modifiedProperties.newValue: "targetResources{}.modifiedProperties{}.newValue"
+      TargetResources.ModifiedProperties.OldValue: "targetResources{}.modifiedProperties{}.oldValue"
+      TargetResources.modifiedProperties.oldValue: "targetResources{}.modifiedProperties{}.oldValue"
+      AdditionalDetails: "additionalDetails{}.value"
+      additionalDetails.additionalInfo: "additionalDetails{}.value"
+      AdditionalDetails.key: "additionalDetails{}.key"
+      AdditionalDetails.value: "additionalDetails{}.value"
+    rule_conditions:
+      - type: logsource
+        product: azure
+        service: auditlogs
+
+  - id: sourcetype_audit
+    type: add_condition
+    conditions:
+      sourcetype: "azure:aad:audit"
+    rule_conditions:
+      - type: logsource
+        product: azure
+        service: auditlogs
+
+  # ------------------------------------------------------------------- m365
+  - id: m365_field_mapping
+    type: field_name_mapping
+    mapping:
+      operation: Operation
+      eventSource: EventSource
+      eventName: Name
+      status: ResultStatus
+      Status: ResultStatus
+      Payload: Payload
+    rule_conditions:
+      - type: logsource
+        product: m365
+
+  - id: sourcetype_m365
+    type: add_condition
+    conditions:
+      sourcetype: "o365:management:activity"
+    rule_conditions:
+      - type: logsource
+        product: m365
+
+  - id: index_condition
+    type: add_condition
+    conditions:
+      index: o365

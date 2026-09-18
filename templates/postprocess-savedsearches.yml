@@ -1,0 +1,55 @@
+postprocessing:
+- type: template
+  template: |+
+
+    {#- Split the query at the first deferred command so the exception macro
+        lands at the END OF THE BASE SEARCH, never after a `| regex` or
+        `| where cidrmatch(...)`. The old build appended it unconditionally,
+        producing invalid SPL in 14 rules. -#}
+    {%- set parts = query.split('\n| ', 1) -%}
+    {%- set base = parts[0] | replace('\n', ' ') -%}
+    {%- set deferred = (parts[1] | replace('\n| ', ' | ')) if parts | length > 1 else '' -%}
+    {%- set rid = rule.id | string -%}
+    [Sigma - {{ rule.title | replace('[','') | replace(']','') }} - {{ rid[:8] }}]
+    description = [{{ rule.level }}/{{ rule.status }}] {{ rule.description | replace('\n',' ') | replace('\r',' ') }} | ID: {{ rid }} | TAGS: {{ rule.tags | join(',') }}
+    action.email.subject = [SEV-{{ rule.level | string | upper }}] {{ rule.title }}
+    alert.severity = {% if rule.level | string == 'critical' %}5{% elif rule.level | string == 'high' %}4{% else %}3{% endif %}
+    {% if rule.level | string == 'critical' %}cron_schedule = */15 * * * *
+    dispatch.earliest_time = -20m@m
+    dispatch.latest_time = -5m@m
+    schedule_window = 600
+    {% elif rule.level | string == 'high' %}cron_schedule = 12 * * * *
+    dispatch.earliest_time = -70m@m
+    dispatch.latest_time = -10m@m
+    schedule_window = 2400
+    {% else %}cron_schedule = 42 */2 * * *
+    dispatch.earliest_time = -130m@m
+    dispatch.latest_time = -10m@m
+    schedule_window = 3600
+    {% endif %}
+    search = {{ base }} `{{ rid }}`{% if deferred %} | {{ deferred }}{% endif %} | table _time, host, _raw
+
+finalizers:
+- type: template
+  template: |
+    [default]
+    enableSched = 1
+    alert.track = 1
+    alert.expires = 3d
+    alert.suppress = 1
+    alert.suppress.fields = host
+    alert.suppress.period = 3600s
+    counttype = number of events
+    relation = greater than
+    quantity = 0
+    action.email = 1
+    action.email.inline = 1
+    action.email.sendresults = 1
+    action.email.maxresults = 10
+    action.email.message.alert = $description$
+    action.email.include.results_link = 1
+    action.email.include.trigger_time = 1
+    action.email.include.view_link = 1
+    action.email.to = soc-alerts@secureon.si
+
+    {{ queries | join('\n') }}

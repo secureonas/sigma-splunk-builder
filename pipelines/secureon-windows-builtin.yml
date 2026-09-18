@@ -1,0 +1,113 @@
+name: Secureon - Windows builtin channels (non-XML WinEventLog)
+priority: 30
+
+# Applied ONLY to the windows-builtin conversion run (Security / System /
+# Application / PowerShell / other builtin channels).
+# Sysmon rules use secureon-sysmon.yml instead - do not merge the two,
+# the same Sigma field name means different things in each.
+#
+# Field names verified against Splunk_TA_windows 10.0.0, sourcetype=WinEventLog,
+# EventCode 4624 sample (2026-09-18).
+#
+# NOTE: every key must be unique. PyYAML silently keeps the LAST duplicate,
+# which is what broke ServiceFileName in the previous build.
+
+transformations:
+
+  - id: field_mapping
+    type: field_name_mapping
+    mapping:
+      # --- core ---
+      EventID: EventCode
+      Channel: LogName
+      Provider_Name: SourceName          # see README: value differs for Security channel
+
+      # --- subject (the account performing the action) ---
+      SubjectUserName: Subject_Account_Name
+      SubjectDomainName: Subject_Account_Domain
+      SubjectUserSid: Subject_Security_ID
+      SubjectLogonId: Subject_Logon_ID
+
+      # --- target account ---
+      TargetUserName: Account_Name
+      TargetDomainName: Account_Domain
+      TargetSid: Target_Account_ID
+      TargetUserSid: Target_Account_ID
+      AccountName: Account_Name
+      AccountDomain: Account_Domain
+
+      # --- group membership (4728/4729/4732/4733/4756) ---
+      # 4728/4732 carry Member_Account_Name / Member_Security_ID.
+      # There is no Member_Name or Member_ID field.
+      MemberName: Member_Account_Name
+      MemberSid: Member_Security_ID
+      GroupName: Group_Name
+      GroupDomain: Group_Domain
+
+      # --- logon (4624/4625/4648) ---
+      LogonType: Logon_Type
+      LogonProcessName: Logon_Process
+      AuthenticationPackageName: Authentication_Package
+      WorkstationName: Workstation_Name
+      IpAddress: Source_Network_Address
+      IpPort: Source_Port
+      ImpersonationLevel: Impersonation_Level
+      ElevatedToken: Elevated_Token
+      KeyLength: Key_Length
+      LogonGuid: Logon_GUID
+      TargetLogonId: Logon_ID
+      TokenElevationType: Token_Elevation_Type
+
+      # --- process (4688) ---
+      NewProcessName: New_Process_Name
+      ParentProcessName: Creator_Process_Name
+      CommandLine: Process_Command_Line
+      ProcessName: Process_Name
+      ProcessId: Process_ID
+
+      # --- object access (4662/4663/4670) ---
+      ObjectName: Object_Name
+      ObjectServer: Object_Server
+      ObjectType: Object_Type
+      AccessMask: Access_Mask
+      AccessList: Accesses
+      Properties: Properties
+
+      # --- services (4697 / 7045) ---
+      # Sigma's System-channel 7045 rules use ImagePath; the TA calls it
+      # Service_File_Name on both 4697 and 7045. Verified in both samples.
+      ImagePath: Service_File_Name
+      ServiceName: Service_Name
+      ServiceFileName: Service_File_Name
+      ServiceStartType: Service_Start_Type
+      ServiceType: Service_Type
+      ServiceAccount: Service_Account
+
+      # --- shares (5140/5145) ---
+      ShareName: Share_Name
+      ShareLocalPath: Share_Path
+      RelativeTargetName: Relative_Target_Name
+
+      # --- kerberos (4768/4769/4771) ---
+      TicketEncryptionType: Ticket_Encryption_Type
+      TicketOptions: Ticket_Options
+      ServiceSid: Service_ID
+      PreAuthType: Pre_Authentication_Type
+
+      # --- account attributes (4720/4738) ---
+      SamAccountName: SAM_Account_Name
+      NewUacValue: New_UAC_Value
+      OldUacValue: Old_UAC_Value
+      SidHistory: SID_History
+      UserPrincipalName: User_Principal_Name
+      DisplayName: Display_Name
+      HomeDirectory: Home_Directory
+      ScriptPath: Script_Path
+
+      # --- privileges ---
+      PrivilegeList: PrivilegeList
+
+  - id: index_condition
+    type: add_condition
+    conditions:
+      index: windows
