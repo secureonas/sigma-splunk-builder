@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write   # required to create the tag + release
+  issues: write     # required for the on-failure issue below
 
 jobs:
   build:
