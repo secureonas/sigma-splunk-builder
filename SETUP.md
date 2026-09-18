@@ -1,5 +1,10 @@
 # Sigma build host — Ubuntu setup
 
+**For a normal setup, run `bash bootstrap.sh` — it does sections 1 to 5 below.**
+The rest of this file explains what it does and why, and is worth reading once
+if something goes wrong.
+
+
 Everything below was run and validated on 2026-09-18. Versions installed:
 
 | Package | Version |
