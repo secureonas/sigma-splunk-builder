@@ -4,10 +4,11 @@ Builds the `Sigma_Alerts` Splunk app from the SigmaHQ rule repository:
 Windows builtin channels, Sysmon, Microsoft cloud and Linux syslog, with
 per-rule exception macros that survive every rebuild.
 
-One command produces a versioned, deployable tarball:
-
 ```bash
-./generate_sigma_app.sh
+git clone https://github.com/secureonas/sigma-splunk-builder.git /opt/sigma-build
+cd /opt/sigma-build
+bash bootstrap.sh          # venv, sigma-cli, plugins, SigmaHQ rules
+bash generate_sigma_app.sh # build the app
 ```
 
 ```
@@ -68,9 +69,10 @@ Two consequences:
 
 ```
 .
+├── bootstrap.sh                   one-shot VM setup, idempotent
 ├── generate_sigma_app.sh          build entry point
 ├── filter_rules.py                stages rules by group and level
-├── VERSION                        app version, bumped each build
+├── VERSION                        MAJOR.MINOR, edited in git only
 ├── pipelines/
 │   ├── secureon-windows-builtin.yml   non-XML WinEventLog field mapping
 │   ├── secureon-sysmon.yml            index only, no mapping needed
