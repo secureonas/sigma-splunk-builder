@@ -151,15 +151,15 @@ cp -r "$WORKING_DIR/skel/default/data" "$APP/default/"
 cp "$WORKING_DIR/skel/default.meta" "$APP/metadata/default.meta"
 cp "$WORKING_DIR/skel/bin/README"   "$APP/bin/README"
 
-# Version lives in the VERSION file so it is tracked in git rather than
-# mutated inside skel/. Patch level is bumped on every build.
-CUR=$(tr -d '[:space:]' < "$WORKING_DIR/VERSION")
-IFS='.' read -r -a V <<< "$CUR"
-NEW="${V[0]}.${V[1]}.$((V[2] + 1))"
-echo "$NEW" > "$WORKING_DIR/VERSION"
+# VERSION holds MAJOR.MINOR only and is edited by hand in git. The build
+# appends the build date as the patch level, so NOTHING tracked is written
+# on the build host and `git pull` always stays clean.
+BASE=$(tr -d '[:space:]' < "$WORKING_DIR/VERSION")
+IFS='.' read -r -a V <<< "$BASE"
+NEW="${V[0]}.${V[1]:-0}.$(date +%Y%m%d)"
 sed -i "s/^description = .*/description = sigma rules clone $CURRENT_DATE/" "$APP/default/app.conf"
 sed -i "s/^version = .*/version = $NEW/" "$APP/default/app.conf"
-echo "    version $CUR -> $NEW  (commit VERSION after a successful build)"
+echo "    version $NEW"
 
 echo "==> Orphan macro report"
 # Exception macros at a client whose rule no longer exists upstream.
