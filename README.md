@@ -102,11 +102,21 @@ Status is always `test` or `stable`. Sysmon stays at high+critical because
 the category dirs alone hold ~1200 rules and adding medium roughly doubles
 them.
 
-Not included: `network` (53 rules, none for Palo Alto or Sophos),
-`application`, `macos`, `identity`, `cloud/aws`, `cloud/gcp`,
-`azure/activity_logs`, `azure/privileged_identity_management` (posture checks,
-not log detections), and every auditd- or Sysmon-for-Linux-dependent Linux
-category.
+Cloud coverage is `azure/signin_logs` + `azure/audit_logs` + `m365` — 75 rules
+against `index=o365`, mapped to `azure:aad:signin`, `azure:aad:audit` and
+`o365:management:activity` respectively.
+
+Deliberately excluded:
+
+| path | why |
+|---|---|
+| `cloud/azure/activity_logs` | Azure IaaS resource logs, not collected |
+| `cloud/azure/privileged_identity_management` | posture checks, not log detections |
+| `cloud/azure/identity_protection` | 19 rules keyed on `riskEventType`, which needs the Identity Protection sourcetype. Mapped onto sign-in logs they miss offline detections (leaked credentials), and an `atRisk` catch-all alert already covers the same ground. The pipeline maps the field if you want them — add the directory to the `cloud` group. |
+| `cloud/aws`, `cloud/gcp`, `macos`, `identity` | not in scope |
+| `network` | 53 rules, none for Palo Alto or Sophos |
+| `application` | github, bitbucket, kubernetes, opencanary |
+| `linux/{auditd,process_creation,file_event,network_connection}` | need auditd or Sysmon-for-Linux |
 
 Rules are staged flat as `<uuid>.yml`, so a rule that upstream renames or
 moves cannot produce two copies.
