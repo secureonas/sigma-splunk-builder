@@ -1,0 +1,100 @@
+name: Build Sigma_Alerts
+
+# Scheduled build against current SigmaHQ/sigma, published as a tagged
+# release with the app tarball attached.
+#
+# Change the schedule to taste:
+#   monthly, 1st at 05:00 UTC   -> '0 5 1 * *'          (current)
+#   quarterly, 1st at 05:00 UTC -> '0 5 1 1,4,7,10 *'
+#
+# GitHub sometimes delays scheduled runs by up to ~15 minutes under load;
+# harmless here since nothing is time-sensitive.
+
+on:
+  schedule:
+    - cron: '0 5 1 * *'
+  workflow_dispatch: {}   # Actions tab -> "Run workflow", for on-demand builds
+
+permissions:
+  contents: write   # required to create the tag + release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v4
+
+      - name: Checkout SigmaHQ/sigma
+        uses: actions/checkout@v4
+        with:
+          repository: SigmaHQ/sigma
+          path: sigma-rules
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # actions/setup-python is not externally managed (unlike Ubuntu's
+      # system Python), so plain pip works without the venv dance bootstrap.sh
+      # needs on a real VM. Kept anyway for parity with a local build.
+      - name: Install sigma-cli and plugins
+        run: |
+          python -m venv venv
+          ./venv/bin/pip install --quiet --upgrade pip
+          ./venv/bin/pip install --quiet sigma-cli
+          ./venv/bin/sigma plugin install splunk
+          ./venv/bin/sigma plugin install sysmon
+          ./venv/bin/sigma list pipelines
+
+      - name: Build
+        env:
+          SIGMA_REPO: ${{ github.workspace }}/sigma-rules
+        run: bash generate_sigma_app.sh
+
+      # The checked-out sigma-rules dir has no branch/remote in the usual
+      # sense (actions/checkout leaves a detached HEAD), so the script's own
+      # `git pull` inside generate_sigma_app.sh will warn and skip - harmless,
+      # the checkout step above already got the latest commit.
+
+      - name: Read build outputs
+        id: build
+        run: |
+          TARBALL=$(ls sigma_versions/*.tar.gz | head -1)
+          APPVER=$(grep '^version' build/Sigma_Alerts/default/app.conf | awk -F' = ' '{print $2}')
+          TOTAL=$(grep -c '^\[Sigma - ' build/savedsearches.conf 2>/dev/null || grep -c '^\[Sigma - ' build/Sigma_Alerts/default/savedsearches.conf)
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          echo "version=$APPVER" >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+
+      - name: Create tagged release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.build.outputs.version }}
+          name: Sigma_Alerts v${{ steps.build.outputs.version }}
+          body: |
+            Automated build against `SigmaHQ/sigma` main, ${{ github.event.repository.updated_at }}.
+
+            Rules: ${{ steps.build.outputs.total }}
+
+            Extract over `$SPLUNK_HOME/etc/apps/` on the search head.
+            `default/` is replaced; `local/` (per-client exception macros) is
+            untouched.
+          files: ${{ steps.build.outputs.tarball }}
+
+      # If the scheduled build breaks - a Sigma rule directory got
+      # reorganised upstream, a pipeline plugin changed its output shape -
+      # you want to know without checking the Actions tab yourself.
+      - name: File an issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Sigma_Alerts build failed - ${new Date().toISOString().slice(0,10)}`,
+              body: `The scheduled build failed.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            })
