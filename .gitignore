@@ -1,0 +1,8 @@
+build/
+staging/
+sigma_versions/
+*.tar.gz
+venv/
+__pycache__/
+*.pyc
+sigma/
