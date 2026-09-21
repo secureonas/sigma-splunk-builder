@@ -34,6 +34,34 @@ command -v sigma >/dev/null || {
     exit 1
 }
 
+# Smoke test: convert a tiny rule that uses `not`. pyparsing 3.3.3 (a
+# transitive dependency of pySigma) breaks every condition containing `not`
+# with "TypeError: 'str' object is not callable". If the test fails, pin
+# pyparsing below 3.3.3 in the same Python environment sigma runs from.
+SMOKE=$(mktemp --suffix=.yml)
+cat > "$SMOKE" <<'EOF'
+title: smoke
+id: 00000000-0000-0000-0000-000000000000
+logsource: {product: windows, service: security}
+detection:
+  sel: {EventID: 4624}
+  flt: {LogonType: 3}
+  condition: sel and not flt
+level: high
+EOF
+if ! sigma convert -t splunk -p splunk_windows "$SMOKE" >/dev/null 2>&1; then
+    SIGMA_PY="$(dirname "$(readlink -f "$(command -v sigma)")")/python"
+    [[ -x "$SIGMA_PY" ]] || SIGMA_PY="$(dirname "$(command -v sigma)")/python"
+    echo "==> sigma smoke test failed, pinning pyparsing<3.3.3"
+    "$SIGMA_PY" -m pip install --quiet "pyparsing<3.3.3"
+    sigma convert -t splunk -p splunk_windows "$SMOKE" >/dev/null 2>&1 || {
+        echo "sigma still cannot convert a basic rule:" >&2
+        sigma convert -t splunk -p splunk_windows "$SMOKE" 2>&1 | tail -3 >&2
+        rm -f "$SMOKE"; exit 1
+    }
+fi
+rm -f "$SMOKE"
+
 for f in "$PIPE/secureon-windows-builtin.yml" "$TPL/postprocess-savedsearches.yml" \
          "$TPL/create-macro.yml" "$WORKING_DIR/filter_rules.py" \
          "$WORKING_DIR/VERSION" "$WORKING_DIR/skel/app.conf" \
