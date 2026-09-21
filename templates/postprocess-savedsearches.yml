@@ -17,15 +17,15 @@ postprocessing:
     {% if rule.level | string == 'critical' %}cron_schedule = */15 * * * *
     dispatch.earliest_time = -20m@m
     dispatch.latest_time = -5m@m
-    schedule_window = 600
+    schedule_window = auto
     {% elif rule.level | string == 'high' %}cron_schedule = 12 * * * *
     dispatch.earliest_time = -70m@m
     dispatch.latest_time = -10m@m
-    schedule_window = 2400
+    schedule_window = auto
     {% else %}cron_schedule = 42 */2 * * *
     dispatch.earliest_time = -130m@m
     dispatch.latest_time = -10m@m
-    schedule_window = 3600
+    schedule_window = auto
     {% endif %}
     search = {{ base }} `{{ rid }}`{% if deferred %} | {{ deferred }}{% endif %} | table _time, host, _raw
 
