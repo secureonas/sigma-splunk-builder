@@ -22,10 +22,12 @@ postprocessing:
     dispatch.earliest_time = -70m@m
     dispatch.latest_time = -10m@m
     schedule_window = auto
+    allow_skew = 20m
     {% else %}cron_schedule = 42 */2 * * *
     dispatch.earliest_time = -130m@m
     dispatch.latest_time = -10m@m
     schedule_window = auto
+    allow_skew = 40m
     {% endif %}
     search = {{ base }} `{{ rid }}`{% if deferred %} | {{ deferred }}{% endif %} | table _time, host, _raw
 
@@ -36,9 +38,6 @@ finalizers:
     enableSched = 1
     alert.track = 1
     alert.expires = 3d
-    alert.suppress = 1
-    alert.suppress.fields = host
-    alert.suppress.period = 3600s
     counttype = number of events
     relation = greater than
     quantity = 0
@@ -48,6 +47,7 @@ finalizers:
     action.email.maxresults = 10
     action.email.message.alert = $description$
     action.email.include.results_link = 1
+    action.email.include.search = 1
     action.email.include.trigger_time = 1
     action.email.include.view_link = 1
     action.email.to = soc-alerts@secureon.si
