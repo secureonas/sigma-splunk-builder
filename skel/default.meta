@@ -7,8 +7,17 @@
 # breaks that.
 #
 []
-access = read : [ * ], write : [ admin, power ]
+access = read : [ * ], write : [ admin, power, splunkaiagent ]
 export = none
+
+# The agent role edits savedsearches (enable/disable, tune) and macros
+# (per-client exceptions). Both inherit the app-level ACL above; listed
+# explicitly so a future change to [] does not silently drop them.
+[savedsearches]
+access = read : [ * ], write : [ admin, power, splunkaiagent ]
+
+[macros]
+access = read : [ * ], write : [ admin, power, splunkaiagent ]
 
 [eventtypes]
 export = system
