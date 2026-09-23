@@ -1,5 +1,9 @@
 #
-# Replace with the metadata/default.meta from your currently deployed app.
+# App-wide defaults only. Do NOT add per-type stanzas ([savedsearches],
+# [macros], ...) with an `access` line here: a type stanza in default.meta
+# is more specific than the `[]` stanza in a client's local.meta and would
+# override it, silently stripping write access from any client-specific
+# role. Keep all ACL handling in `[]` so local.meta stays authoritative.
 #
 # Macros are deliberately NOT exported to system scope. Client exception
 # macros live in local/macros.conf of this same app and resolve in app
@@ -9,15 +13,6 @@
 []
 access = read : [ * ], write : [ admin, power, splunkaiagent ]
 export = none
-
-# The agent role edits savedsearches (enable/disable, tune) and macros
-# (per-client exceptions). Both inherit the app-level ACL above; listed
-# explicitly so a future change to [] does not silently drop them.
-[savedsearches]
-access = read : [ * ], write : [ admin, power, splunkaiagent ]
-
-[macros]
-access = read : [ * ], write : [ admin, power, splunkaiagent ]
 
 [eventtypes]
 export = system
