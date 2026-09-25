@@ -137,11 +137,11 @@ echo "    rewrote $((BEFORE-AFTER)) field references"
 echo "==> Validating"
 fail=0
 
-STANZAS=$(grep -c '^\[Sigma - ' "$SS" || true)
+STANZAS=$(grep -c '^\[Level:' "$SS" || true)
 MACROS=$(grep -c '^\[' "$MC" || true)
 REFS=$( { grep -o '`[0-9a-f-]\{36\}`' "$SS" || true; } | wc -l)
 UNIQ_IDS=$( { grep -o 'ID: [0-9a-f-]\{36\}' "$SS" || true; } | sort -u | wc -l)
-UNIQ_STANZA=$( { grep '^\[Sigma - ' "$SS" || true; } | sort -u | wc -l)
+UNIQ_STANZA=$( { grep '^\[Level:' "$SS" || true; } | sort -u | wc -l)
 UNIQ_MACRO=$( { grep '^\[' "$MC" || true; } | sort -u | wc -l)
 
 echo "    stanzas=$STANZAS unique=$UNIQ_STANZA"
