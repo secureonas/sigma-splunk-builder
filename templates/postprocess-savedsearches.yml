@@ -1,3 +1,12 @@
+# action.email.subject is a CONTRACT: a downstream app parses it, so it must
+# stay byte-identical to the old build's subject. The old build set
+# `action.email.subject = Sigma $name$` in [default], where $name$ was the
+# stanza name `Level:<level> Status:<status> Title:<title>`. Stanza names
+# changed, so the same string is now built explicitly in the template below.
+# Do not reformat that line.
+#
+# NOTE: keep Jinja comments out of the template block - `{#- ... -#}` strips
+# the surrounding newlines and silently joins two .conf lines together.
 postprocessing:
 - type: template
   template: |+
@@ -12,7 +21,7 @@ postprocessing:
     {%- set rid = rule.id | string -%}
     [Sigma - {{ rule.title | replace('[','') | replace(']','') }} - {{ rid[:8] }}]
     description = [{{ rule.level }}/{{ rule.status }}] {{ rule.description | replace('\n',' ') | replace('\r',' ') }} | ID: {{ rid }} | TAGS: {{ rule.tags | join(',') }}
-    action.email.subject = [SEV-{{ rule.level | string | upper }}] {{ rule.title }}
+    action.email.subject = Sigma Level:{{ rule.level }} Status:{{ rule.status }} Title:{{ rule.title }}
     alert.severity = {% if rule.level | string == 'critical' %}5{% elif rule.level | string == 'high' %}4{% else %}3{% endif %}
     {% if rule.level | string == 'critical' %}cron_schedule = */15 * * * *
     dispatch.earliest_time = -20m@m
