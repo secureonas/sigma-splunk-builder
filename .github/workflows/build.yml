@@ -63,12 +63,12 @@ jobs:
       - name: Read build outputs
         id: build
         run: |
-          TARBALL=$(ls sigma_versions/*.tar.gz | head -1)
-          APPVER=$(grep '^version' build/Sigma_Alerts/default/app.conf | awk -F' = ' '{print $2}')
-          TOTAL=$(grep -c '^\[Sigma - ' build/savedsearches.conf 2>/dev/null || grep -c '^\[Sigma - ' build/Sigma_Alerts/default/savedsearches.conf)
-          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
-          echo "version=$APPVER" >> "$GITHUB_OUTPUT"
-          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+            TARBALL=$(ls -t sigma_versions/*.tar.gz | head -1)
+            APPVER=$(grep '^version' build/Sigma_Alerts/default/app.conf | awk -F' = ' '{print $2}')
+            TOTAL=$(grep -c '^search = ' build/Sigma_Alerts/default/savedsearches.conf || true)
+            echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+            echo "version=$APPVER" >> "$GITHUB_OUTPUT"
+            echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
 
       - name: Create tagged release
         uses: softprops/action-gh-release@v2
