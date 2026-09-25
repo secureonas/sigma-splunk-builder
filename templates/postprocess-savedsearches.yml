@@ -5,6 +5,14 @@
 # changed, so the same string is now built explicitly in the template below.
 # Do not reformat that line.
 #
+# The stanza name is ALSO a contract: clients have per-search overrides in
+# local/savedsearches.conf keyed to `Level:<level> Status:<status> Title:<title>`,
+# so it must stay in that form. Known cost: if a rule's level, status or title
+# changes upstream, the stanza is renamed and any local/ override for it is
+# orphaned (an orphan stanza has no `search` key but still inherits
+# enableSched = 1 from [default], i.e. an empty scheduled search). After each
+# upgrade, diff local/ stanza names against default/ and re-key what moved.
+#
 # NOTE: keep Jinja comments out of the template block - `{#- ... -#}` strips
 # the surrounding newlines and silently joins two .conf lines together.
 postprocessing:
@@ -19,7 +27,7 @@ postprocessing:
     {%- set base = parts[0] | replace('\n', ' ') -%}
     {%- set deferred = (parts[1] | replace('\n| ', ' | ')) if parts | length > 1 else '' -%}
     {%- set rid = rule.id | string -%}
-    [Sigma - {{ rule.title | replace('[','') | replace(']','') }} - {{ rid[:8] }}]
+    [Level:{{ rule.level }} Status:{{ rule.status }} Title:{{ rule.title | replace('[','') | replace(']','') }}]
     description = [{{ rule.level }}/{{ rule.status }}] {{ rule.description | replace('\n',' ') | replace('\r',' ') }} | ID: {{ rid }} | TAGS: {{ rule.tags | join(',') }}
     action.email.subject = Sigma Level:{{ rule.level }} Status:{{ rule.status }} Title:{{ rule.title }}
     alert.severity = {% if rule.level | string == 'critical' %}5{% elif rule.level | string == 'high' %}4{% else %}3{% endif %}
